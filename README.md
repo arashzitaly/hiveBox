@@ -53,11 +53,11 @@ Here is a pre-start checklist:
 ## Implementation
 
 ## What
-   Adds initial Python version script and Dockerfile for Phase 2.
+Adds initial Python version script and Dockerfile for Phase 2.
 
-   ## How to test
-   docker build -t hivebox:0.0.1 .
-   docker run hivebox:0.0.1
+## How to test
+docker build -t hivebox:0.0.1 .
+docker run hivebox:0.0.1
 
-   ## Expected output
-   v0.0.1
+## Expected output
+v0.0.1
