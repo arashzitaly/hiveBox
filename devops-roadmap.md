@@ -24,8 +24,8 @@
 | Step | Type | Name | Status |
 |------|------|------|--------|
 | 1 | Prep | Docker basics (Basic Dockerfile) | done |
-| 2 | HiveBox | Phase 2 — First app + container | todo |
-| 3 | Prep | CI/CD basics (GitHub Pages Deployment) | todo |
+| 2 | HiveBox | Phase 2 — First app + container | done |
+| 3 | Prep | CI/CD basics (GitHub Pages Deployment) | done |
 | 4 | HiveBox | Phase 3 — Real API + CI pipeline | todo |
 | — | Milestone | Checkpoint 1 — Working API in CI | todo |
 | 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | todo |
