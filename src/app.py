@@ -1,6 +1,8 @@
-from flask import Flask, jsonify
+"""HiveBox Flask application."""
+
 from datetime import datetime, timezone
 import requests
+from flask import Flask, jsonify
 
 SENSEBOX_IDS = [
     "5eba5fbad46fb8001b799786",
@@ -15,15 +17,18 @@ app = Flask(__name__)
 
 @app.get("/version")
 def version():
+    """Return the application version."""
     return jsonify({"version": __version__})
 
 
 @app.get("/temperature")
 def temperature():
+    """Return the average temperature from openSenseMap senseBoxes."""
     temperatures = []
 
     for box_id in SENSEBOX_IDS:
-        response = requests.get(f"https://api.opensensemap.org/boxes/{box_id}")
+        response = requests.get(
+            f"https://api.opensensemap.org/boxes/{box_id}", timeout=5)
         box = response.json()
 
         for sensor in box["sensors"]:
