@@ -26,10 +26,10 @@
 | 1 | Prep | Docker basics (Basic Dockerfile) | done |
 | 2 | HiveBox | Phase 2 — First app + container | done |
 | 3 | Prep | CI/CD basics (GitHub Pages Deployment) | done |
-| 4 | HiveBox | Phase 3 — Real API + CI pipeline | todo |
-| — | Milestone | Checkpoint 1 — Working API in CI | todo |
-| 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | todo |
-| 6 | HiveBox | Phase 4 — Kubernetes + CD pipeline | todo |
+| 4 | HiveBox | Phase 3 — Real API + CI pipeline | done |
+| — | Milestone | Checkpoint 1 — Working API in CI | done |
+| 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | done |
+| 6 | HiveBox | Phase 4 — Kubernetes + CD pipeline | in-progress |
 | 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Prometheus & Grafana + Automated DB Backups) | todo |
 | 8 | HiveBox | Phase 5 — Production-grade | todo |
 | — | Milestone | Checkpoint 2 — Production-grade system | todo |
