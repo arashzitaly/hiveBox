@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hivebox
+  labels:
+    app: hivebox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hivebox
+  template:
+    metadata:
+      labels:
+        app: hivebox
+    spec:
+      containers:
+        - name: hivebox
+          image: ghcr.io/arashzitaly/hivebox:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SENSEBOX_IDS
+              value: "5eba5fbad46fb8001b799786,5c21ff8f919bf8001adf2488,5ade1acf223bd80019a10\
+                11c"

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hivebox
+  labels:
+    app: hivebox
+spec:
+  type: ClusterIP
+  selector:
+    app: hivebox
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

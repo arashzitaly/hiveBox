@@ -1,14 +1,14 @@
 """HiveBox Flask application."""
 
 from datetime import datetime, timezone
+import os
 import requests
 from flask import Flask, jsonify
 
-SENSEBOX_IDS = [
-    "5eba5fbad46fb8001b799786",
-    "5c21ff8f919bf8001adf2488",
-    "5ade1acf223bd80019a1011c",
-]
+SENSEBOX_IDS = os.environ.get(
+    "SENSEBOX_IDS",
+    "5eba5fbad46fb8001b799786,5c21ff8f919bf8001adf2488,5ade1acf223bd80019a1011c",
+).split(",")
 
 __version__ = "0.0.1"
 
