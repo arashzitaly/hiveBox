@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import os
 import requests
 from flask import Flask, jsonify
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 SENSEBOX_IDS = os.environ.get(
     "SENSEBOX_IDS",
@@ -30,6 +31,12 @@ def temperature_status(temperature_value):
 def version():
     """Return the application version."""
     return jsonify({"version": __version__})
+
+
+@app.get("/metrics")
+def metrics():
+    """Return default Prometheus metrics."""
+    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
 
 
 @app.get("/temperature")

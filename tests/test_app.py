@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
+import importlib
 import pytest
 from src.app import app
 
@@ -19,6 +20,26 @@ def test_version(client):
     response = client.get("/version")
     assert response.status_code == 200
     assert response.get_json() == {"version": "0.0.1"}
+
+
+def test_metrics_returns_prometheus_text(client):
+    """Test /metrics returns Prometheus metrics text."""
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/plain")
+    assert b"python_info" in response.data
+
+
+def test_sensebox_ids_can_be_configured_from_env(monkeypatch):
+    """Test senseBox IDs are read from the SENSEBOX_IDS environment variable."""
+    monkeypatch.setenv("SENSEBOX_IDS", "box-one,box-two")
+
+    import src.app as app_module
+
+    reloaded_app = importlib.reload(app_module)
+
+    assert reloaded_app.SENSEBOX_IDS == ["box-one", "box-two"]
 
 
 def make_mock_box(temp_value):
