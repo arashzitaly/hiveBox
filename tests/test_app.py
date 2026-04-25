@@ -67,7 +67,11 @@ def test_temperature_returns_200(mock_get, client):
     mock_get.return_value = mock_response
 
     response = client.get("/temperature")
+    data = response.get_json()
+
     assert response.status_code == 200
+    assert "status" in data
+    assert data["status"] == "Good"
 
 
 @patch("src.app.requests.get")
@@ -81,6 +85,8 @@ def test_temperature_returns_float(mock_get, client):
     data = response.get_json()
     assert "temperature" in data
     assert isinstance(data["temperature"], float)
+    assert "status" in data
+    assert data["status"] in ("Too Cold", "Good", "Too Hot")
 
 
 @pytest.mark.parametrize(
@@ -105,3 +111,18 @@ def test_temperature_returns_status(
 
     assert response.status_code == 200
     assert data["status"] == expected_status
+
+
+@patch("src.app.requests.get")
+def test_temperature_returns_503_when_sensor_data_is_invalid(mock_get, client):
+    """Test /temperature does not crash when senseBox data is incomplete."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"sensors": [{"title": "Temperatur"}]}
+    mock_get.return_value = mock_response
+
+    response = client.get("/temperature")
+
+    assert response.status_code == 503
+    assert response.get_json() == {
+        "error": "No valid temperature data within the last hour"
+    }
