@@ -15,6 +15,17 @@ __version__ = "0.0.1"
 app = Flask(__name__)
 
 
+def temperature_status(temperature_value):
+    """Return the Phase 4 status label for a temperature value."""
+    if temperature_value < 10:
+        return "Too Cold"
+    if 11 <= temperature_value <= 36:
+        return "Good"
+    if temperature_value > 37:
+        return "Too Hot"
+    return "Good"
+
+
 @app.get("/version")
 def version():
     """Return the application version."""
@@ -46,7 +57,7 @@ def temperature():
         return jsonify({"error": "No valid temperature data within the last hour"}), 503
 
     average = round(sum(temperatures) / len(temperatures), 2)
-    return jsonify({"temperature": average})
+    return jsonify({"temperature": average, "status": temperature_status(average)})
 
 
 if __name__ == "__main__":

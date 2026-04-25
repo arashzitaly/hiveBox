@@ -60,3 +60,27 @@ def test_temperature_returns_float(mock_get, client):
     data = response.get_json()
     assert "temperature" in data
     assert isinstance(data["temperature"], float)
+
+
+@pytest.mark.parametrize(
+    ("temperature_value", "expected_status"),
+    [
+        (9.0, "Too Cold"),
+        (20.0, "Good"),
+        (38.0, "Too Hot"),
+    ],
+)
+@patch("src.app.requests.get")
+def test_temperature_returns_status(
+    mock_get, client, temperature_value, expected_status
+):
+    """Test /temperature returns the required Phase 4 status field."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = make_mock_box(temperature_value)
+    mock_get.return_value = mock_response
+
+    response = client.get("/temperature")
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["status"] == expected_status
