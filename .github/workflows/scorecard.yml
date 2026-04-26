@@ -7,16 +7,15 @@ on:
     push:
         branches: [main]
 
-permissions: read-all
+permissions:
+    security-events: write
+    id-token: write
+    contents: read
 
 jobs:
     analysis:
         name: Scorecard analysis
         runs-on: ubuntu-latest
-        permissions:
-            security-events: write
-            id-token: write
-
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
