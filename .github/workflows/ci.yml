@@ -1,41 +1,54 @@
 name: CI
 
 on:
-    pull_request:
-        branches: [main]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-    ci:
-        runs-on: ubuntu-latest
+  ci:
+    runs-on: ubuntu-latest
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.12"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-            - name: Install dependencies
-              run: pip install -r requirements-dev.txt pylint
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt pylint
 
-            - name: Lint Python with Pylint
-              run: pylint src/app.py
+      - name: Lint Python with Pylint
+        run: pylint src/app.py
 
-            - name: Lint Dockerfile with Hadolint
-              uses: hadolint/hadolint-action@v3.1.0
-              with:
-                  dockerfile: Dockerfile
+      - name: Lint Dockerfile with Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
 
-            - name: Build Docker image
-              run: docker build -t hivebox:ci .
+      - name: Build Docker image
+        run: docker build -t hivebox:ci .
 
-            - name: Run unit tests
-              run: pytest tests/
+      - name: Run unit tests
+        run: pytest --cov=src --cov-report=xml tests/
 
-            - name: Start container and verify /version
-              run: |
-                  docker run -d --name hivebox-ci -p 8080:8080 hivebox:ci
-                  sleep 3
-                  curl --fail http://localhost:8080/version
-                  docker stop hivebox-ci
+      - name: Start container and verify /version
+        run: |
+          docker run -d --name hivebox-ci -p 8080:8080 hivebox:ci
+          sleep 3
+          curl --fail http://localhost:8080/version
+          docker stop hivebox-ci
+
+      - name: SonarQube scan
+        uses: sonarsource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Terrascan Kubernetes scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            tenable/terrascan:1.18.11 \
+            scan -d k8s -i k8s --iac-version v1 -t k8s --skip-rules AC_K8S_0069
