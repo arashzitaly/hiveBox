@@ -46,10 +46,9 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Terrascan Kubernetes scan
-        uses: tenable/terrascan-action@v1.4.1
-        with:
-          iac_type: k8s
-          iac_version: v1
-          iac_dir: k8s
-          policy_type: k8s
-          skip_rules: AC_K8S_0069
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            tenable/terrascan:1.18.11 \
+            scan -d k8s -i k8s --iac-version v1 -t k8s --skip-rules AC_K8S_0069
