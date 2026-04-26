@@ -13,15 +13,44 @@ spec:
     metadata:
       labels:
         app: hivebox
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/hivebox: runtime/default
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: hivebox
-          image: ghcr.io/arashzitaly/hivebox:latest
+          image: ghcr.io/arashzitaly/hivebox:0.0.1
           ports:
             - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /version
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
             - name: SENSEBOX_IDS
               value: "5eba5fbad46fb8001b799786,5c21ff8f919bf8001adf2488,5ade1acf223bd80019a1011c"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 100m

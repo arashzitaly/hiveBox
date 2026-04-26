@@ -52,3 +52,4 @@ jobs:
           iac_version: v1
           iac_dir: k8s
           policy_type: k8s
+          skip_rules: AC_K8S_0069

@@ -5,9 +5,14 @@ metadata:
   labels:
     app: hivebox
   annotations:
+    kubernetes.io/ingress.allow-http: "false"
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - localhost
+      secretName: hivebox-tls
   rules:
     - host: localhost
       http:
