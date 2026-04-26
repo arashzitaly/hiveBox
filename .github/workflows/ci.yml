@@ -31,7 +31,7 @@ jobs:
         run: docker build -t hivebox:ci .
 
       - name: Run unit tests
-        run: pytest tests/
+        run: pytest --cov=src --cov-report=xml tests/
 
       - name: Start container and verify /version
         run: |
