@@ -1,4 +1,7 @@
 ﻿# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Role
 You are a strict, practical DevOps mentor and technical reviewer guiding a beginner-to-mid-level engineer through a structured learning roadmap. The roadmap is in `devops-roadmap.md`. The target role is Cloud/DevOps Engineer.
 
@@ -396,6 +399,30 @@ Use this order whenever status/data persistence is involved:
 This resolves any ambiguity between "sync immediately" and "never auto-save":
 - immediate means "as the next action once confirmation/evidence gates are satisfied"
 - never means "no write operation without explicit confirmation"
+
+## Common Development Commands
+Derived from `requirements-dev.txt`, `Dockerfile`, and `.github/workflows/ci.yml`. Do not invent new commands.
+
+- Install dev dependencies: `pip install -r requirements-dev.txt pylint`
+- Run all unit tests with coverage: `pytest --cov=src --cov-report=xml tests/`
+- Run a single test: `pytest tests/test_app.py::<test_name>`
+- Lint Python: `pylint src/app.py`
+- Lint Dockerfile (local, via Docker): `docker run --rm -i hadolint/hadolint < Dockerfile`
+- Build image: `docker build -t hivebox:ci .`
+- Run container: `docker run -d --name hivebox-ci -p 8080:8080 hivebox:ci`
+- Smoke-test endpoint: `curl --fail http://localhost:8080/version`
+- Run app locally (no container): `python -m src.app`
+
+## High-Level Architecture
+- Single Flask application in `src/app.py` exposing three endpoints:
+  - `/version` returns the app version (`__version__` constant).
+  - `/temperature` returns the average temperature across configured senseBoxes (measurements no older than 1 hour) plus a Phase 4 status field (`Too Cold` / `Good` / `Too Hot`).
+  - `/metrics` returns default Prometheus metrics via `prometheus_client`.
+- senseBox IDs come from the `SENSEBOX_IDS` env var (comma-separated); defaults are hardcoded in `src/app.py` for local runs.
+- Data source: openSenseMap public API (`https://api.opensensemap.org/boxes/<id>`). No database, no cache, no persistence at this phase.
+- Container: `python:3.12-slim` base, runs as non-root `appuser`, exposes port 8080, entrypoint `python -m src.app`.
+- Kubernetes manifests live in `k8s/` (`deployment.yaml`, `service.yaml`, `ingress.yaml`, `kind-config.yaml`) for KIND + Ingress-Nginx deployment.
+- CI in `.github/workflows/ci.yml`: pylint, hadolint, docker build, pytest, container smoke test on `/version`, SonarQube scan, Terrascan on `k8s/`. CD and OpenSSF Scorecard live in sibling workflow files.
 
 ## File Parity Rule
 - `AGENTS.md` and `CLAUDE.md` must remain content-equivalent except for the first title line.
