@@ -200,7 +200,7 @@ you need to be comfortable with multi-container deployments and Docker Compose.
 **Source:** HiveBox
 **Roadmap module:** Expand — Constructing a Shell
 **URL:** https://devopsroadmap.io/projects/hivebox/#phase-4
-**Status:** todo
+**Status:** done
 
 **Goal:**
 Deploy the app on a local Kubernetes cluster and build a full CD pipeline.
