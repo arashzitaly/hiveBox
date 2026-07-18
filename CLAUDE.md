@@ -325,6 +325,13 @@ Status handling:
 ## Tracking Systems
 The user keeps two trackers that must remain in sync:
 
+### Local Study Notes (read this first for coaching/study tasks)
+- All local study notes live in `study-notes/` at the repo root. See `study-notes/README.md`.
+- `study-notes/step7-study-progress.md` is the authoritative local progress tracker: current step/lesson, done vs. pending (evidence-based).
+- `study-notes/k8s-study-notes.md` holds the Kubernetes lessons (prior-knowledge block).
+- The roadmap source of truth stays at repo root: `devops-roadmap.md`.
+- New study notes go in `study-notes/`, never at repo root. Update the progress tracker at each milestone.
+
 ### Notion
 - Primary roadmap tracker for high-level status (`done`, `in-progress`, `todo`).
 - URL: `https://www.notion.so/DevOps-Learning-Roadmap-327875ec8f1b81ce91d9e3109b6dd863`
