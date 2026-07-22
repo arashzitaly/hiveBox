@@ -30,7 +30,7 @@
 | — | Milestone | Checkpoint 1 — Working API in CI | done |
 | 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | done |
 | 6 | HiveBox | Phase 4 — Kubernetes + CD pipeline | done |
-| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Prometheus & Grafana + Automated DB Backups) | todo |
+| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Prometheus & Grafana + Automated DB Backups) | in-progress (1/3: IaC done) |
 | 8 | HiveBox | Phase 5 — Production-grade | todo |
 | — | Milestone | Checkpoint 2 — Production-grade system | todo |
 | 9 | Prep | Networking & security (Bastion Host + Linux Server Setup + Blue-Green Deployment) | todo |
@@ -242,7 +242,12 @@ Deploy the app on a local Kubernetes cluster and build a full CD pipeline.
 - IaC on DigitalOcean (Terraform) — https://roadmap.sh/projects/iac-digitalocean
 - Prometheus and Grafana — https://roadmap.sh/projects/monitoring
 - Automated DB Backups — https://roadmap.sh/projects/automated-backups
-**Status:** todo
+**Status:** in-progress (1 of 3 projects done)
+
+**Progress:**
+- ✅ IaC on DigitalOcean (Terraform) — DOKS cluster + VPC provisioned via Terraform, remote state + locking on DO Spaces, verified `kubectl get nodes` on cloud (2 nodes Ready), then destroyed. Merged via PR #33.
+- ⏳ Prometheus and Grafana — next
+- ⏳ Automated DB Backups — pending
 
 **Why this comes before Phase 5:**
 HiveBox Phase 5 uses Terraform to provision a real Kubernetes cluster and
