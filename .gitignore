@@ -3,3 +3,23 @@ __pycache__/
 *.pyc
 .coverage
 coverage.xml
+
+# Terraform (Step 7 / Project 1 — IaC on DigitalOcean)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# local credential env file (sourced, never committed)
+secrets.env
+# keep example files tracked
+!*.tfvars.example
+!secrets.env.example
