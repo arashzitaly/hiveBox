@@ -4,7 +4,7 @@
 > picking up this repo should read this file first to know exactly where we are.
 > Rule: nothing is marked DONE without evidence (actual code / applied infra / observed output).
 
-Last updated: 2026-07-22 (Project 1 BUILD complete — evidence captured)
+Last updated: 2026-07-23 (Project 1 BUILD complete on DigitalOcean AND ported to Azure/AKS — Azure is primary cloud going forward)
 
 ## Position
 - Step 6 — HiveBox Phase 4: **DONE**
@@ -13,7 +13,7 @@ Last updated: 2026-07-22 (Project 1 BUILD complete — evidence captured)
 - Prior knowledge: Kubernetes lessons 1–12 done — notes in `k8s-study-notes.md` (this folder)
 
 ## Step 7 contains THREE roadmap.sh projects (in order)
-1. IaC on DigitalOcean (Terraform) — https://roadmap.sh/projects/iac-digitalocean
+1. IaC (Terraform) — https://roadmap.sh/projects/iac-digitalocean — done on DigitalOcean, then ported to Azure/AKS (primary)
 2. Prometheus & Grafana (Monitoring) — https://roadmap.sh/projects/monitoring
 3. Automated DB Backups — https://roadmap.sh/projects/automated-backups
 
@@ -21,13 +21,13 @@ Last updated: 2026-07-22 (Project 1 BUILD complete — evidence captured)
 Per project, run the loop: **Study → Build (code) → verify with evidence → next project.**
 Do NOT batch all study first. Finish each project end-to-end before moving on.
 
-1. IaC: study → build DOKS + remote state → `kubectl get nodes` hits cloud
+1. IaC: study → build DOKS/AKS + remote state → `kubectl get nodes` hits cloud (done on DO, then Azure)
 2. Monitoring: study → deploy Prometheus/Grafana on cluster → HiveBox metrics in dashboard
 3. Backups: study → automate DB backups → prove a restore works
 
 ## Current status by project
 
-### Project 1 — IaC on DigitalOcean (Terraform)
+### Project 1 — IaC (Terraform): DigitalOcean (original) + Azure/AKS (primary going forward)
 Study (theory):
 - Lesson 1 — Why Terraform / what IaC means (declarative vs imperative, state): **DONE**
 - Lesson 2 — Providers, core workflow (init/plan/apply/destroy), DO auth: **DONE**
@@ -50,11 +50,27 @@ Build evidence (2026-07-22):
   2 nodes `Ready` v1.36.0, VPC internal IPs 10.10.10.3/.4 (matches TF-defined 10.10.10.0/24). Not KIND.
 - Cost control: `terraform destroy` destroyed the DOKS cluster (only billable resource — 0 charges left).
   VPC auto-promoted to fra1 *default* (DO forbids deleting default VPCs; VPCs are free), so it was removed
-  from state via `terraform state rm digitalocean_vpc.hivebox`. Verified: `terraform state list` empty,
-  `doctl kubernetes cluster list` empty.
+  from state via `terraform state rm digitalocean_vpc.hivebox`. Verified: `terraform state list` empty.
 - Gotcha logged: DO makes the first VPC in a region the default; default VPCs can't be `destroy`ed.
   Also: `source secrets.env` per new shell — a fresh terminal loses env vars ("No valid credential sources").
 - Secrets: never committed (`git check-ignore` confirms `secrets.env` ignored; example holds placeholders only).
+
+Azure port evidence (2026-07-23):
+- `terraform/azure/` mirrors the DO layout: `versions.tf` (azurerm provider + azurerm blob backend, `use_azuread_auth`),
+  `variables.tf` (subscription_id/location/node_size), `main.tf` (provider `features {}` + `azurerm_resource_group`
+  + `azurerm_kubernetes_cluster` with SystemAssigned identity), `outputs.tf`. Each file comments the DO→Azure mapping.
+- State backend bootstrapped out-of-band via `az`: `hivebox-tfstate-rg` + storage account `hiveboxtfstatearash`
+  (North Europe) + `tfstate` container. Keyless auth via role `Storage Blob Data Contributor` + `ARM_USE_AZUREAD=true`.
+- CLOUD proof: `terraform apply` created AKS `hivebox-dev` (control plane) + auto-generated `MC_hivebox-dev-rg_...`
+  group (VMSS 2× `Standard_B2s_v2`, VNet, NSG, load balancer, public IP, managed identity) in `swedencentral`.
+  Verified in portal / `az group list`.
+- Cost control: `terraform destroy` removed the cluster + MC_ group (VMSS = only billable resource; 0 charges left).
+  `az group list` after destroy = only `hivebox-tfstate-rg` + `NetworkWatcherRG` (both free/pennies, kept by design).
+- Trial-subscription gotchas logged: `westeurope` refused new customers; `northeurope`/`swedencentral` restrict VM
+  SKUs (no v1 `Standard_B2s` — used `Standard_B2s_v2`). Rule: trust the "available VM sizes" list in the AKS 400 error,
+  not `az vm list-skus`. Fresh subs need `az provider register` for Microsoft.Storage/ContainerService (few-min propagation).
+- Decoupling: Azure port is independent of the app/k8s/CI-CD (all cloud-agnostic — unchanged). DO config preserved
+  in `terraform/digitalocean/` as a reference for side-by-side diffing.
 
 ### Project 2 — Prometheus & Grafana (Monitoring)
 Study: **NOT STARTED**

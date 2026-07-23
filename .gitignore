@@ -4,7 +4,7 @@ __pycache__/
 .coverage
 coverage.xml
 
-# Terraform (Step 7 / Project 1 — IaC on DigitalOcean)
+# Terraform (Step 7 / Project 1 — IaC on DigitalOcean and Azure)
 **/.terraform/
 *.tfstate
 *.tfstate.*

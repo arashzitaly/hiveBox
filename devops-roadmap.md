@@ -30,7 +30,7 @@
 | — | Milestone | Checkpoint 1 — Working API in CI | done |
 | 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | done |
 | 6 | HiveBox | Phase 4 — Kubernetes + CD pipeline | done |
-| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Prometheus & Grafana + Automated DB Backups) | in-progress (1/3: IaC done) |
+| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Azure + Prometheus & Grafana + Automated DB Backups) | in-progress (1/3: IaC done — DO + Azure) |
 | 8 | HiveBox | Phase 5 — Production-grade | todo |
 | — | Milestone | Checkpoint 2 — Production-grade system | todo |
 | 9 | Prep | Networking & security (Bastion Host + Linux Server Setup + Blue-Green Deployment) | todo |
@@ -240,12 +240,14 @@ Deploy the app on a local Kubernetes cluster and build a full CD pipeline.
 **Source:** roadmap.sh
 **Projects:**
 - IaC on DigitalOcean (Terraform) — https://roadmap.sh/projects/iac-digitalocean
+  (also ported to **Azure/AKS** — Azure is the primary cloud going forward; DO kept as reference)
 - Prometheus and Grafana — https://roadmap.sh/projects/monitoring
 - Automated DB Backups — https://roadmap.sh/projects/automated-backups
 **Status:** in-progress (1 of 3 projects done)
 
 **Progress:**
 - ✅ IaC on DigitalOcean (Terraform) — DOKS cluster + VPC provisioned via Terraform, remote state + locking on DO Spaces, verified `kubectl get nodes` on cloud (2 nodes Ready), then destroyed. Merged via PR #33.
+- ✅ IaC on Azure (Terraform) — same workload ported to **AKS**. `terraform/azure/` provisions a resource group + `azurerm_kubernetes_cluster` (2× `Standard_B2s_v2` in `swedencentral`) with SystemAssigned managed identity; remote state on an Azure Storage blob backend (`hivebox-tfstate-rg`, keyless `use_azuread_auth`). Full lifecycle verified: bootstrap → init → apply → `az group list`/portal check → destroy → verify only the state backend + NetworkWatcherRG remain. Azure is the primary cloud going forward; DO config kept in `terraform/digitalocean/` as reference.
 - ⏳ Prometheus and Grafana — next
 - ⏳ Automated DB Backups — pending
 
