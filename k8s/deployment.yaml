@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: hivebox
-          image: ghcr.io/arashzitaly/hivebox:0.0.1
+          image: ghcr.io/arashzitaly/hivebox:v0.0.6
           ports:
             - containerPort: 8080
           livenessProbe:
