@@ -73,15 +73,48 @@ Azure port evidence (2026-07-23):
   in `terraform/digitalocean/` as a reference for side-by-side diffing.
 
 ### Project 2 — Prometheus & Grafana (Monitoring)
-Study: **NOT STARTED**
+Study: **COMPLETE** — 6 lessons, checkpoint-gated, all passed (2026-07-26). Interview-defense note in the
+Obsidian vault: "Monitoring — Prometheus & Grafana Study Session".
 Build: **NOT STARTED**
+
+Study coverage (2026-07-26):
+- L1 monitoring/observability (3 pillars; Prometheus = metrics; pull model + its advantages).
+- L2 architecture (K8s service discovery → scrape → TSDB point = metric+labels+timestamp+value → PromQL; local-disk
+  TSDB trade-off, add Thanos/managed for LT/HA).
+- L3 metric types (counter+`rate()`, gauge, histogram=aggregatable percentiles, summary=per-instance) + HiveBox
+  plain-text `/metrics`.
+- L4 Grafana (display layer; data source; PromQL; separation of concerns vs Prometheus UI).
+- L5 alerting (PromQL rule + `for` duration; Prometheus fires → Alertmanager routes/groups/dedups/silences).
+- L6 deploy plan: `kube-prometheus-stack` Helm chart + HiveBox `ServiceMonitor` (Operator-driven) → verify
+  Prometheus → Status → Targets = UP → Grafana dashboard.
+
+Build: **DONE** (2026-07-26) — deployed and verified on AKS end-to-end, then destroyed for cost.
+
+Build evidence (2026-07-26):
+- Cluster: `terraform apply` (AKS `hivebox-dev`, 2× `Standard_B2s_v2`, swedencentral); `az aks get-credentials`;
+  2 nodes Ready v1.35.6.
+- App: deployed `k8s/deployment.yaml` + `k8s/service.yaml` to `default` ns. Fixed image tag `0.0.1` → `v0.0.6`
+  (only `latest`/`v0.0.6` exist in GHCR; 0.0.1 was 404 → ErrImagePull). GHCR package made public. Pod 1/1 Running.
+- Stack: `helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace`
+  — Prometheus 2/2, Grafana 3/3, Alertmanager, Operator, kube-state-metrics, node-exporter all Running.
+- Scrape: new `k8s/servicemonitor.yaml` (label `release: monitoring` REQUIRED for kube-prometheus-stack to select it;
+  selector `app: hivebox`, port `http`, path `/metrics`). Verified Prometheus → Targets: `serviceMonitor/default/hivebox/0`
+  = UP, scraping `10.244.x:8080/metrics`. `up{job="hivebox"}` = 1.
+- Dashboard: Grafana (admin creds from `monitoring-grafana` secret), 3 panels — Availability `up{job="hivebox"}`=1,
+  CPU `rate(process_cpu_seconds_total{job="hivebox"}[5m])`, Memory `process_resident_memory_bytes{job="hivebox"}` (~43MB).
+  Note: HiveBox exposes DEFAULT python/process metrics only (no custom `http_requests_total`).
+- Cost: `terraform destroy` → only `hivebox-tfstate-rg` + `NetworkWatcherRG` remain. Total spend for session ≈ pennies.
+- Uncommitted repo changes from this build: new `k8s/servicemonitor.yaml`, `k8s/deployment.yaml` image tag → `v0.0.6`.
 
 ### Project 3 — Automated DB Backups
 Study: **NOT STARTED**
 Build: **NOT STARTED**
 
 ## Overall
-Step 7 study section ≈ 1/3 done (Project 1 nearly complete, needs Lesson 6). No code written for any Step 7 project yet.
+Step 7 ≈ 2/3 COMPLETE. Project 1 (IaC) DONE — study + build, DigitalOcean AND Azure/AKS.
+Project 2 (Monitoring) DONE — study + build (kube-prometheus-stack + ServiceMonitor + Grafana dashboard on AKS, verified, destroyed).
+Project 3 (Automated DB Backups) NOT STARTED.
+Next action: Project 3 — Automated DB Backups (study → build).
 
 ## Teaching format (for continuity)
 Interactive, one lesson at a time. Lesson template:

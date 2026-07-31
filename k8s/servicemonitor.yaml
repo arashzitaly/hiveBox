@@ -1,0 +1,22 @@
+# Tells the Prometheus Operator to scrape HiveBox's /metrics endpoint.
+# The Operator watches for ServiceMonitor objects and reconfigures Prometheus automatically.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hivebox
+  labels:
+    # REQUIRED: kube-prometheus-stack's Prometheus only picks up ServiceMonitors
+    # carrying this release label (release = the Helm release name, "monitoring").
+    # Without it, the ServiceMonitor is ignored and HiveBox never gets scraped.
+    release: monitoring
+spec:
+  # Which Service to scrape — matches the labels on the hivebox Service.
+  selector:
+    matchLabels:
+      app: hivebox
+  endpoints:
+    # "http" is the named port on the hivebox Service (port 80 -> targetPort 8080).
+    # Prometheus scrapes the pod's 8080 at /metrics.
+    - port: http
+      path: /metrics
+      interval: 15s
