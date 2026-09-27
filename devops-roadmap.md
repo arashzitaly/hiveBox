@@ -30,7 +30,7 @@
 | — | Milestone | Checkpoint 1 — Working API in CI | done |
 | 5 | Prep | Containers & multi-service (Dockerized Service + Multi-Container App) | done |
 | 6 | HiveBox | Phase 4 — Kubernetes + CD pipeline | done |
-| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Azure + Prometheus & Grafana + Automated DB Backups) | in-progress (2/3: IaC + Monitoring done — DO + Azure) |
+| 7 | Prep | IaC & monitoring (IaC on DigitalOcean + Azure + Prometheus & Grafana + Automated DB Backups) | done (3/3; backups completed as agreed Azure adaptation) |
 | 8 | HiveBox | Phase 5 — Production-grade | todo |
 | — | Milestone | Checkpoint 2 — Production-grade system | todo |
 | 9 | Prep | Networking & security (Bastion Host + Linux Server Setup + Blue-Green Deployment) | todo |
@@ -238,18 +238,19 @@ Deploy the app on a local Kubernetes cluster and build a full CD pipeline.
 
 ### Step 7 — Prep: IaC & monitoring
 **Source:** roadmap.sh
+**Notion tracker:** https://www.notion.so/DevOps-Learning-Roadmap-327875ec8f1b81ce91d9e3109b6dd863
 **Projects:**
 - IaC on DigitalOcean (Terraform) — https://roadmap.sh/projects/iac-digitalocean
   (also ported to **Azure/AKS** — Azure is the primary cloud going forward; DO kept as reference)
 - Prometheus and Grafana — https://roadmap.sh/projects/monitoring
 - Automated DB Backups — https://roadmap.sh/projects/automated-backups
-**Status:** in-progress (2 of 3 projects done)
+**Status:** done (3 of 3 projects; backups completed as agreed Azure adaptation)
 
 **Progress:**
 - ✅ IaC on DigitalOcean (Terraform) — DOKS cluster + VPC provisioned via Terraform, remote state + locking on DO Spaces, verified `kubectl get nodes` on cloud (2 nodes Ready), then destroyed. Merged via PR #33.
 - ✅ IaC on Azure (Terraform) — same workload ported to **AKS**. `terraform/azure/` provisions a resource group + `azurerm_kubernetes_cluster` (2× `Standard_B2s_v2` in `swedencentral`) with SystemAssigned managed identity; remote state on an Azure Storage blob backend (`hivebox-tfstate-rg`, keyless `use_azuread_auth`). Full lifecycle verified: bootstrap → init → apply → `az group list`/portal check → destroy → verify only the state backend + NetworkWatcherRG remain. Azure is the primary cloud going forward; DO config kept in `terraform/digitalocean/` as reference.
 - ✅ Prometheus and Grafana — `kube-prometheus-stack` (Helm) deployed on AKS with a HiveBox `ServiceMonitor` (label `release: monitoring`); target verified UP, 3-panel Grafana dashboard (availability / CPU / memory), then destroyed for cost. Repo artifacts: `k8s/servicemonitor.yaml`, `k8s/deployment.yaml` image tag → `v0.0.6`. Merged via PR #36.
-- ⏳ Automated DB Backups — next
+- ✅ Automated DB Backups (agreed Azure adaptation) — Azure VM, seeded MongoDB, manual tarball, and separate restore verified on 2026-09-27; user chose Azure Blob Storage instead of upstream R2 to avoid managing a second cloud provider. Private `mongodb-backups` container, VM identity role assignment, identity-authenticated blob upload, 427 B blob in portal, byte-identical Azure download, timestamped upload from saved script as `azureuser`, active 00:00/12:00 UTC cron entry, and manual cron-command trigger with exit 0 verified. Backup-lab Azure resource group deletion verified by `az group exists --name hivebox-backups-rg` returning `false`; the downloaded local SSH key was later verified absent. An elapsed scheduled firing was intentionally not observed to avoid VM charges; the optional download-latest-and-restore script was not built.
 
 **Why this comes before Phase 5:**
 HiveBox Phase 5 uses Terraform to provision a real Kubernetes cluster and
@@ -264,6 +265,7 @@ Grafana to visualize metrics. These projects give you hands-on practice first.
 **Done when:**
 - You can write basic Terraform to provision cloud infrastructure
 - You can set up a Prometheus + Grafana stack and create a dashboard
+- You can configure a 12-hour MongoDB backup, manually verify the tarball and restore, and upload it to Azure Blob Storage
 
 ---
 

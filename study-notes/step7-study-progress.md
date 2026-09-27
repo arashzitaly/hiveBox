@@ -4,12 +4,13 @@
 > picking up this repo should read this file first to know exactly where we are.
 > Rule: nothing is marked DONE without evidence (actual code / applied infra / observed output).
 
-Last updated: 2026-07-23 (Project 1 BUILD complete on DigitalOcean AND ported to Azure/AKS — Azure is primary cloud going forward)
+Last updated: 2026-09-27 (Step 7 done and synced to Notion; backup lab resource group and downloaded SSH key absent)
 
 ## Position
 - Step 6 — HiveBox Phase 4: **DONE**
-- Step 7 — Prep: IaC & Monitoring: **CURRENT**
+- Step 7 — Prep: IaC & Monitoring: **DONE (agreed Azure adaptation for Project 3)**
 - Roadmap source: `../devops-roadmap.md` (repo root)
+- Notion roadmap tracker: https://www.notion.so/DevOps-Learning-Roadmap-327875ec8f1b81ce91d9e3109b6dd863
 - Prior knowledge: Kubernetes lessons 1–12 done — notes in `k8s-study-notes.md` (this folder)
 
 ## Step 7 contains THREE roadmap.sh projects (in order)
@@ -107,14 +108,34 @@ Build evidence (2026-07-26):
 - Uncommitted repo changes from this build: new `k8s/servicemonitor.yaml`, `k8s/deployment.yaml` image tag → `v0.0.6`.
 
 ### Project 3 — Automated DB Backups
-Study: **NOT STARTED**
-Build: **NOT STARTED**
+Study: **DONE (Azure adaptation)** — discussed backup validation and chose Azure for the server. The upstream project requires a database, a 12-hour backup schedule, and a tarball uploaded to Cloudflare R2. On 2026-09-27, the user intentionally replaced R2 with Azure Blob Storage to keep the lab in Azure and avoid managing a second cloud provider. The user accepted configuring the 12-hour schedule plus a successful manual trigger as sufficient lab evidence, without keeping the VM running until an elapsed scheduled firing. The upstream R2 destination is not met literally; the download-latest-and-restore script is an optional stretch goal.
+Build: **DONE (Azure adaptation)** — Azure portal reported deployment complete for `backup-test-vm` in resource group `hivebox-backups-rg` on 2026-09-27. VM Overview showed Status `Running`, Ubuntu 24.04, and size `Standard D2s v3` (2 vCPUs, 8 GiB). SSH login reached the `azureuser@backup-test-vm` shell. After MongoDB installation, `systemctl is-active mongod` returned `active`. `backup_lab.samples` contained two verified records (`one`/`alpha`/2 and `two`/`beta`/5). `mongodump` reported 2 documents; `backup_lab.tar.gz` was 427 bytes and listed `samples.bson` plus metadata. A separate `restore_lab.samples` contained the same two expected records after restoring from the tarball. Azure portal showed storage account `hiveboxbackupsarash27` with private `mongodb-backups` container and Storage Blob Data Contributor assignment to the `backup-test-vm` managed identity. On the VM, `az login --identity --allow-no-subscriptions` returned `systemAssignedIdentity` and Azure subscription 1. `az storage blob upload --auth-mode login` returned 100% and a successful response for `backup_lab.tar.gz` at 2026-09-27T09:08:41+00:00. Azure portal container screenshot showed `backup_lab.tar.gz` as a 427 B block blob with last modified 2026-09-27 11:08:41 AM in portal local time. Later checks below verify the Azure download and installed schedule. A separate restore from the downloaded path and an elapsed cron firing were not run.
+
+SSH error resolved (2026-09-27): Windows OpenSSH rejected the downloaded private key as too broadly readable (`CodexSandboxUsers`). Restricted the key file ACL with `icacls`, then SSH login succeeded. Prevention check: inspect private-key ACLs when OpenSSH reports `UNPROTECTED PRIVATE KEY FILE`.
+
+Azure copy check (2026-09-27): `az storage blob download --auth-mode login` returned the 427-byte `backup_lab.tar.gz` from `mongodb-backups`; SHA-256 matched the locally restored tarball (`5a3d10244edcf807144c9ba4fb402882f7eaf7a30129f9476cd1d994b26824b0`). A separate restore from the downloaded path was not run.
+
+Manual automation check (2026-09-27): Azure VM Run Command output showed `Uploaded backup_lab-20260927T091550Z.tar.gz from 2 source documents`; `mongodump` stderr reported 2 documents and Azure CLI upload reached 100%. Since this ran through Run Command, persistence and ownership of `/home/azureuser/backup-lab/run-backup.sh` remain unverified; the 12-hour schedule is not configured.
+
+Saved script check (2026-09-27): SSH output showed `/home/azureuser/backup-lab/run-backup.sh` exists with `-rwxr-xr-x` permissions, owned by `root:root`; `test -x` as `azureuser` printed `script ready`. Execution as `azureuser` and the schedule remain unverified.
+
+Scheduler-user test (2026-09-27): `azureuser` ran `/home/azureuser/backup-lab/run-backup.sh`; `mongodump` reported 2 documents and the script printed `Uploaded backup_lab-20260927T091923Z.tar.gz from 2 source documents` after Azure CLI reached 100%. Cron entry and scheduled execution remain unverified.
+
+Cron configuration (2026-09-27): VM reported `UTC +0000`; `systemctl is-active cron` returned `active`; `crontab -l` for `azureuser` showed `0 0,12 * * * /home/azureuser/backup-lab/run-backup.sh >> /home/azureuser/backup-lab/cron.log 2>&1`. This proves installation for 00:00 and 12:00 UTC, not an elapsed scheduled run. Error-to-knowledge: typing the cron expression at the shell prompt left `crontab -l` empty; a cron expression is configuration. Fix: `printf '%s\n' '0 0,12 * * * /home/azureuser/backup-lab/run-backup.sh >> /home/azureuser/backup-lab/cron.log 2>&1' | crontab -`. Prevention check: always run `crontab -l` after installing an entry.
+
+Manual cron-command trigger (2026-09-27): running the exact crontab command as `azureuser` returned `exit=0`; `cron.log` recorded `done dumping backup_lab.samples (2 documents)` and `Uploaded backup_lab-20260927T092556Z.tar.gz from 2 source documents`. The earlier `0: command not found` log line came from entering the cron expression at the shell prompt; it was not part of this successful run. Elapsed scheduled execution remains unobserved.
+
+Cost-control checkpoint (2026-09-27): Azure VM Overview screenshot showed `backup-test-vm` status `Stopped (deallocated)`. The Delete pane was open and selected the OS disk, NIC, and public IP as associated resources, but the final deletion confirmation was not selected and deletion was not verified. The separate Azure Blob storage account was not listed for deletion.
+
+Cloud cleanup (2026-09-27): Azure Cloud Shell `az group exists --name hivebox-backups-rg` returned `false`, proving the backup-lab resource group and its resources were deleted. Codex could not delete the downloaded SSH key through its Windows sandbox identity, but a later `Test-Path -LiteralPath 'C:\Users\arash\Downloads\backup-test-vm_key.pem'` returned `False`, proving the local key file is gone.
+
+Tracking sync (2026-09-27): The Notion DevOps Learning Roadmap Step 7 overview and detail now say Done (3 of 3, agreed Azure adaptation). The Notion progress line records the backup, restore, Azure upload, matching download hash, active cron entry, manual trigger, and verified resource cleanup. Notion fetch after update confirmed these edits. The overall Notion project remains In progress because Step 8 and later steps are TODO.
 
 ## Overall
-Step 7 ≈ 2/3 COMPLETE. Project 1 (IaC) DONE — study + build, DigitalOcean AND Azure/AKS.
+Step 7: 3/3 agreed prep projects DONE. Project 1 (IaC) DONE — study + build, DigitalOcean AND Azure/AKS.
 Project 2 (Monitoring) DONE — study + build (kube-prometheus-stack + ServiceMonitor + Grafana dashboard on AKS, verified, destroyed).
-Project 3 (Automated DB Backups) NOT STARTED.
-Next action: Project 3 — Automated DB Backups (study → build).
+Project 3 (Automated DB Backups) DONE for the agreed Azure lab: local database, tarball, restore, Azure Blob upload, installed 12-hour schedule, and manual trigger verified. An elapsed scheduled firing was intentionally not observed to avoid VM charges; the optional download-latest-and-restore script was not built.
+Next action: Step 8 (HiveBox Phase 5) remains TODO. The backup lab needs no further resource cleanup based on the verified resource group and key checks.
 
 ## Teaching format (for continuity)
 Interactive, one lesson at a time. Lesson template:
