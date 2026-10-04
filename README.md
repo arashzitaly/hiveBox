@@ -73,3 +73,50 @@ Expected output:
 ```
 v0.0.1
 ```
+
+### Phase 5: Valkey cache endpoints (in progress)
+
+The Flask app connects to Valkey using `VALKEY_HOST` (default `127.0.0.1`)
+and `VALKEY_PORT` (default `6379`). These defaults apply when Python runs
+directly on the host and Valkey publishes port 6379 there.
+
+- `GET /temperature` reads fresh cached senseBox data. Missing, invalid, or
+  stale cache content triggers a refresh before calculating the average.
+- `GET /cache` always fetches senseBox data and replaces the cache when valid
+  readings exist. It returns the new temperature average and status.
+- Cache entries expire after 300 seconds. The payload contains senseBox data,
+  the configured IDs, and the refresh timestamp. Original measurement times
+  are checked on every read; readings older than one hour are excluded.
+- Both endpoints return HTTP 503 if no valid readings exist or Valkey fails.
+- Scheduled refresh every five minutes is not implemented yet. Expiration
+  alone does not fetch new data.
+
+For the local exercise, start the existing Valkey container:
+
+```powershell
+docker start hivebox-valkey
+python -m pip install -r requirements-dev.txt
+python -m src.app
+```
+
+In a second PowerShell window, call the endpoints:
+
+```powershell
+curl.exe --fail http://127.0.0.1:8080/cache
+curl.exe --fail http://127.0.0.1:8080/temperature
+```
+
+With reachable Valkey and recent senseBox measurements, both return JSON with
+`temperature` and `status`. Inspect the cached JSON and remaining lifetime:
+
+```powershell
+docker exec hivebox-valkey valkey-cli GET hivebox:temperature
+docker exec hivebox-valkey valkey-cli TTL hivebox:temperature
+```
+
+Run automated tests (Valkey and openSenseMap are mocked in cache tests):
+
+```powershell
+pytest --cov=src --cov-report=xml tests/
+pylint src/app.py
+```

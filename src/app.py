@@ -1,8 +1,10 @@
 """HiveBox Flask application."""
 
 from datetime import datetime, timezone
+import json
 import os
 import requests
+import valkey
 from flask import Flask, jsonify
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from werkzeug.wrappers import Response
@@ -15,6 +17,28 @@ SENSEBOX_IDS = os.environ.get(
 __version__ = "0.0.1"
 
 app = Flask(__name__)
+cache = valkey.Valkey(
+    host=os.environ.get("VALKEY_HOST", "127.0.0.1"),
+    port=int(os.environ.get("VALKEY_PORT", "6379")),
+    decode_responses=True,
+    socket_connect_timeout=3,
+    socket_timeout=3,
+)
+CACHE_KEY = "hivebox:temperature"
+CACHE_TTL_SECONDS = 300
+
+
+def save_cached_temperature(data):
+    """Convert a temperature dictionary to JSON and cache it for five minutes."""
+    return cache.set(CACHE_KEY, json.dumps(data), ex=CACHE_TTL_SECONDS)
+
+
+def read_cached_temperature():
+    """Restore the cached dictionary, or return None when the key is missing."""
+    stored = cache.get(CACHE_KEY)
+    if stored is None:
+        return None
+    return json.loads(stored)
 
 
 def calculate_temperature_status(average):
@@ -30,7 +54,7 @@ def is_recent_measurement(created_at):
     """Return whether a measurement timestamp is no older than one hour."""
     measured_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
     age = datetime.now(timezone.utc) - measured_at
-    return age.total_seconds() <= 3600
+    return 0 <= age.total_seconds() <= 3600
 
 
 def extract_recent_temperature(box):
@@ -48,12 +72,80 @@ def extract_recent_temperature(box):
     return None
 
 
-def fetch_recent_temperature(box_id):
-    """Fetch one recent temperature value for a configured senseBox."""
+def fetch_box_data(box_id):
+    """Fetch a senseBox payload, including original measurement timestamps."""
     response = requests.get(
         f"https://api.opensensemap.org/boxes/{box_id}", timeout=5)
     response.raise_for_status()
-    return extract_recent_temperature(response.json())
+    return response.json()
+
+
+def temperatures_from_boxes(boxes):
+    """Select valid temperatures, checking measurement age on every read."""
+    temperatures = []
+    for box in boxes:
+        if not isinstance(box, dict):
+            continue
+        try:
+            value = extract_recent_temperature(box)
+            if value is not None:
+                temperatures.append(value)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            continue
+    return temperatures
+
+
+def refresh_temperature_cache():
+    """Fetch current senseBox data and replace the cache when readings are valid."""
+    boxes = []
+    for box_id in SENSEBOX_IDS:
+        try:
+            boxes.append(fetch_box_data(box_id))
+        except (KeyError, TypeError, ValueError, requests.RequestException):
+            continue
+
+    temperatures = temperatures_from_boxes(boxes)
+    if temperatures:
+        save_cached_temperature({
+            "boxes": boxes,
+            "sensebox_ids": SENSEBOX_IDS,
+            "refreshed_at": datetime.now(timezone.utc).isoformat(),
+        })
+    return temperatures
+
+
+def cached_temperature_values():
+    """Read temperatures only when the cache is fresh and matches configured IDs."""
+    try:
+        data = read_cached_temperature()
+        if data is None or data["sensebox_ids"] != SENSEBOX_IDS:
+            return []
+        refreshed_at = datetime.fromisoformat(data["refreshed_at"])
+        age = (datetime.now(timezone.utc) - refreshed_at).total_seconds()
+        if not 0 <= age < CACHE_TTL_SECONDS:
+            return []
+        return temperatures_from_boxes(data["boxes"])
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return []
+
+
+def temperature_response(force_refresh=False):
+    """Return a temperature result from cache or a fresh senseBox fetch."""
+    try:
+        temperatures = [] if force_refresh else cached_temperature_values()
+        if not temperatures:
+            temperatures = refresh_temperature_cache()
+    except valkey.exceptions.ValkeyError:
+        return jsonify({"error": "Temperature cache unavailable"}), 503
+
+    if not temperatures:
+        return jsonify({"error": "No valid temperature data within the last hour"}), 503
+
+    average = round(sum(temperatures) / len(temperatures), 2)
+    return jsonify({
+        "temperature": average,
+        "status": calculate_temperature_status(average),
+    })
 
 
 @app.get("/version")
@@ -64,24 +156,14 @@ def version():
 
 @app.get("/temperature")
 def temperature():
-    """Return the average temperature from openSenseMap senseBoxes."""
-    temperatures = []
+    """Return an average from fresh cached readings, refreshing on a cache miss."""
+    return temperature_response()
 
-    for box_id in SENSEBOX_IDS:
-        try:
-            recent_temperature = fetch_recent_temperature(box_id)
-            if recent_temperature is not None:
-                temperatures.append(recent_temperature)
-        except (KeyError, TypeError, ValueError, requests.RequestException):
-            continue
 
-    if not temperatures:
-        return jsonify({"error": "No valid temperature data within the last hour"}), 503
-
-    average = round(sum(temperatures) / len(temperatures), 2)
-    status = calculate_temperature_status(average)
-
-    return jsonify({"temperature": average, "status": status})
+@app.get("/cache")
+def refresh_cache():
+    """Force an immediate senseBox fetch and cache update."""
+    return temperature_response(force_refresh=True)
 
 
 @app.get("/metrics")

@@ -4,15 +4,17 @@ from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 import importlib
 import pytest
-from src.app import app
 
 
 @pytest.fixture
 def client():
     """Create a test client for the app."""
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+    current_app = importlib.import_module("src.app").app
+    current_app.config["TESTING"] = True
+    with patch("src.app.cache") as cache_mock:
+        cache_mock.get.return_value = None
+        with current_app.test_client() as test_client:
+            yield test_client
 
 
 def test_version(client):
@@ -37,9 +39,12 @@ def test_sensebox_ids_can_be_configured_from_env(monkeypatch):
 
     import src.app as app_module
 
-    reloaded_app = importlib.reload(app_module)
-
-    assert reloaded_app.SENSEBOX_IDS == ["box-one", "box-two"]
+    try:
+        reloaded_app = importlib.reload(app_module)
+        assert reloaded_app.SENSEBOX_IDS == ["box-one", "box-two"]
+    finally:
+        monkeypatch.undo()
+        importlib.reload(app_module)
 
 
 def make_mock_box(temp_value):
