@@ -4,6 +4,7 @@ All HiveBox DevOps-roadmap study material lives in this folder. Any agent
 (Claude Code, Codex, etc.) working on study/coaching tasks should read here first.
 
 ## Contents
+- `learning-gaps.md` — demonstrated gaps, bounded reinforcement, evaluation results, closure evidence, and later retrieval checks. Read alongside the progress tracker.
 - `step7-study-progress.md` — **current position & progress tracker.** Read this first;
   it says which step/lesson we're on and what's done vs. pending (evidence-based).
 - `k8s-study-notes.md` — Kubernetes study notes (lessons 1–12, prior knowledge block).

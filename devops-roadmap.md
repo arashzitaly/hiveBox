@@ -436,6 +436,23 @@ Ready to target mid-level DevOps and Cloud Engineering roles.
 ---
 
 ## Notes
+## Learning sequence and gap policy — agreed 2026-10-04
+
+- Finish the existing HiveBox roadmap before starting PlatformForge: Phase 5 -> understanding evaluation and focused remediation -> Step 9 networking/security prep -> Phase 6 -> Phase 7 capstone -> final handoff. Do not start the two curricula in parallel.
+- Use realistic DevOps tickets: an application/configuration change, pipeline failure, container or Kubernetes incident, infrastructure change, deployment recovery, or monitoring/security problem. Keep each ticket small and tied to the current phase.
+- Follow Understand -> learner writes -> Verify -> controlled Break -> Diagnose and recover -> Reflect and recall. The learner predicts outcomes and identifies the decisive evidence. AI explains, asks targeted diagnostics, reviews, and helps; it must not silently supply finished learning work. A full solution explicitly requested by the learner requires explain-back and a variation.
+- Learn Python, Linux/networking, containers, GitHub Actions, Kubernetes, Terraform/Azure, and architecture in the tasks that expose the need. Do not require an entire Python course before CI/CD practice.
+- Architecture runs throughout: explain request/data flow, component ownership, identity/access boundaries, dependency failure, deployment/rollback, observability, recovery, and cost. Keep the application's design as simple as the required deliverables allow.
+- Record demonstrated gaps with triggering task/evidence, precise missing concept, priority (blocking/foundational/later), bounded study exercise, independent closure evidence, status, and a later retrieval check. Agreement or an AI-written answer does not close a gap.
+- A demonstrated foundational gap may justify a short study session outside the project sequence. State the question, the completion condition, and the task to resume; this is reinforcement, not permission to add tools or project scope. Broader scope changes require an explicit roadmap revision.
+- After Phase 5 deliverables are verified, assess Python/application understanding, CI/CD, containers, Kubernetes, infrastructure, and architecture using short uncoached questions plus a configuration change and a controlled failure. Record strengths as well as gaps. Remediate gaps needed for the next step; schedule non-blocking gaps without restarting completed phases.
+- Repeat focused understanding checks at later phase exits. Track implementation completion separately from understanding (not assessed / needs reinforcement / demonstrated). Preserve existing delivery and mastery gates; do not invent pass evidence.
+- PlatformForge starts only after the full HiveBox roadmap closes, including the capstone unless the user explicitly revises that boundary. Carry forward gap and evaluation evidence. Diagnose familiar topics first and shorten explanation where understanding is demonstrated; retain required operational outcomes and phase exit gates.
+- GitHub Actions remains the primary CI tool and Azure/AKS the existing cloud direction. Azure DevOps is a later explicitly scoped extension, not a parallel pipeline curriculum. Use https://roadmap.sh/devops as a coverage reference, not a requirement to learn every tool.
+- Prioritize CI/CD, containers/Kubernetes, IaC, observability, security, and operational recovery. PlatformForge golden paths and developer self-service stay in their later phases; no phase is silently removed or marked complete.
+
+Gap register: `study-notes/learning-gaps.md`. This process update changes no phase status.
+
 - Each HiveBox phase must be opened as a Pull Request — never push directly to main
 - Use Conventional Commits from Phase 3 onward
 - Document as you go — always write README updates alongside code changes

@@ -138,6 +138,8 @@ Project 3 (Automated DB Backups) DONE for the agreed Azure lab: local database, 
 Next action: Step 8 (HiveBox Phase 5) remains TODO. The backup lab needs no further resource cleanup based on the verified resource group and key checks.
 
 ## Teaching format (for continuity)
+Process decision (2026-10-04): follow the learning sequence and gap policy in `../AGENTS.md`. Finish Phase 5, evaluate understanding and close blocking gaps, complete Step 9 and Phases 6–7, then start PlatformForge. Track gaps/evaluations in `learning-gaps.md`; no new technical completion or assessment is claimed by this update.
+
 Interactive, one lesson at a time. Lesson template:
 Simple explanation / What we'll do in HiveBox / Why it's needed / How it connects to previous work /
 Commands or config involved / Common mistakes / Checkpoint questions (ask, wait, correct before continuing).
