@@ -284,7 +284,10 @@ Add caching, storage, Helm packaging, Terraform infrastructure, and end-to-end t
 - Implement `/store` endpoint — triggers immediate data store to MinIO
 - Extend `/metrics` with custom Prometheus metrics
 - Implement `/readyz` endpoint — returns HTTP 200 unless:
-  - 50%+1 of senseBoxes are not accessible AND cache is older than 5 minutes
+  - at least `max(1, N - 1)` configured senseBoxes are inaccessible (`N` is the configured count)
+  - OR cached content is older than 10 minutes (two cache cycles)
+  - OR the last successfully stored snapshot is older than 10 minutes (two storage cycles)
+  - Agreed adaptation (2026-10-17): intentionally replace the official majority threshold with `max(1, N - 1)`; adopt the official OR logic and two-cycle freshness limits. With three configured boxes, two inaccessible boxes trigger failure. A single MinIO save failure does not itself fail the snapshot-age condition. Readiness implementation remains pending.
 - Configure `/readyz` as Kubernetes readiness probe
 - Create a Helm chart for the application
 - Create Kustomize manifests for infrastructure resources

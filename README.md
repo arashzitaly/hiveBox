@@ -88,8 +88,12 @@ directly on the host and Valkey publishes port 6379 there.
   the configured IDs, and the refresh timestamp. Original measurement times
   are checked on every read; readings older than one hour are excluded.
 - Both endpoints return HTTP 503 if no valid readings exist or Valkey fails.
-- Scheduled refresh every five minutes is not implemented yet. Expiration
-  alone does not fetch new data.
+- Starting with `python -m src.app` starts a background refresh immediately,
+  then waits 300 seconds after each attempt before retrying. Flask continues
+  serving requests during refreshes. Failures are logged and the loop retries.
+  Expiration alone does not fetch new data. The thread stops with the process;
+  importing the module does not start it. Each application process has its own
+  refresh thread. Live scheduled operation still needs verification.
 
 For the local exercise, start the existing Valkey container:
 
@@ -114,7 +118,68 @@ docker exec hivebox-valkey valkey-cli GET hivebox:temperature
 docker exec hivebox-valkey valkey-cli TTL hivebox:temperature
 ```
 
-Run automated tests (Valkey and openSenseMap are mocked in cache tests):
+### Phase 5: MinIO snapshots (in progress)
+
+Set `MINIO_ACCESS_KEY` and `MINIO_SECRET_KEY` in the shell that starts HiveBox.
+`MINIO_ENDPOINT` defaults to `127.0.0.1:9000`; the client currently uses HTTP
+for the local exercise. Create the `hivebox` bucket before uploading.
+
+`GET /store` uses valid cached temperatures, refreshing on a cache miss, and
+uploads their average, status, configured senseBox IDs, and save timestamp as
+JSON under `temperatures/<UTC timestamp>.json`. Zero degrees is valid.
+HTTP 200 includes `bucket` and `object_name` after the upload succeeds.
+HTTP 503 reports missing valid readings, cache failures, or storage failures.
+Dependency exception details are logged rather than returned in the response.
+Starting with `python -m src.app` also starts a background snapshot save
+immediately, then waits 300 seconds after each attempt. Failed attempts are
+logged and retried at the next interval; no valid readings means no upload.
+The interval includes the save duration plus the 300-second wait. Each process
+has its own daemon thread, which ends when the process exits. Importing the
+module does not start the thread. Live periodic storage still needs verification.
+
+```powershell
+curl.exe --fail http://127.0.0.1:8080/store
+```
+
+`/metrics` includes `hivebox_snapshot_saves_total{result="success|error|no_data"}`
+(three separate label values). Both manual and scheduled saves count once in
+the shared save helper. Success counts only after upload completes; dependency
+errors are counted and re-raised for the caller to handle. No valid readings
+counts as `no_data`. All three series start at zero and reset on process restart.
+
+### Phase 5: application Helm chart (in progress)
+
+`charts/hivebox` packages the HiveBox Deployment and Service with configurable
+image, replica count, dependency addresses, Secret references, resources, and
+probes. Valkey and MinIO remain under `k8s/infra` Kustomize management.
+See [the chart guide](charts/hivebox/README.md) for validation, installation,
+and the handover from the currently Kustomize-managed application resources.
+
+### Phase 5: readiness (in progress)
+
+`GET /readyz` returns JSON with `status` and boolean `checks` for `senseboxes`,
+`cache`, and `storage`. It returns 503 if any check fails; otherwise 200.
+The agreed custom accessibility threshold is `max(1, N - 1)` failed boxes,
+where N is the configured count. HTTP accessibility is tracked separately from
+measurement validity during normal fetches. Unknown observations at startup,
+or observations older than 600 seconds, count as unavailable.
+
+Cache content must exist, match the configured IDs, and have a refresh timestamp
+no older than 600 seconds. The existing 300-second Valkey TTL can cause readiness
+to fail earlier when the key expires. Snapshot readiness lists timestamp-named
+JSON objects under `temperatures/` in the existing `hivebox` bucket and checks
+the latest object's MinIO last-modified timestamp, accepting ages through 600
+seconds. Existing snapshots survive application restarts. Missing content,
+invalid timestamps (including future dates), or dependency read failures fail
+the corresponding check. A failed save does not itself invalidate a recent,
+readable previous snapshot.
+
+Readiness only inspects state: it never fetches sensor data, refreshes cache,
+or uploads objects. Background loops populate state after startup. Listing
+snapshot history costs more as the bucket grows; Kubernetes probe wiring and
+live readiness verification remain pending.
+
+Run automated tests (external dependencies are mocked in endpoint unit tests):
 
 ```powershell
 pytest --cov=src --cov-report=xml tests/

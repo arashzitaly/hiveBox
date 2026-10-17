@@ -1,0 +1,9 @@
+HiveBox release {{ .Release.Name }} is installed in {{ .Release.Namespace }}.
+
+Valkey, MinIO, the credentials Secret, and the hivebox bucket must already exist.
+Forward the application Service:
+
+kubectl --context kind-hivebox -n {{ .Release.Namespace }} port-forward service/{{ .Release.Name }} 18080:{{ .Values.service.port }}
+
+In another terminal:
+curl.exe -i http://127.0.0.1:18080/readyz

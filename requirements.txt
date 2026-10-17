@@ -2,3 +2,4 @@ flask
 prometheus-client
 requests
 valkey==6.1.1
+minio==7.2.20

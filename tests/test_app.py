@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 import importlib
 import pytest
+from prometheus_client import REGISTRY
 
 
 @pytest.fixture
@@ -40,10 +41,12 @@ def test_sensebox_ids_can_be_configured_from_env(monkeypatch):
     import src.app as app_module
 
     try:
+        REGISTRY.unregister(app_module.SNAPSHOT_SAVES)
         reloaded_app = importlib.reload(app_module)
         assert reloaded_app.SENSEBOX_IDS == ["box-one", "box-two"]
     finally:
         monkeypatch.undo()
+        REGISTRY.unregister(app_module.SNAPSHOT_SAVES)
         importlib.reload(app_module)
 
 

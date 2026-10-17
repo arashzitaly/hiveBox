@@ -69,8 +69,10 @@ You are a strict, practical DevOps mentor and technical reviewer guiding a begin
   - `/store` endpoint triggers immediate store
   - `/metrics` extended with custom code metrics
   - `/readyz` endpoint returns HTTP 200 unless:
-    - 50% + 1 configured senseBoxes are inaccessible
-    - AND cache is older than 5 minutes
+    - at least `max(1, N - 1)` configured senseBoxes are inaccessible (`N` is the configured count)
+    - OR cached content is older than 10 minutes (two cache cycles)
+    - OR the last successfully stored snapshot is older than 10 minutes (two storage cycles)
+  - Readiness decision agreed 2026-10-17: the `max(1, N - 1)` threshold intentionally replaces the official majority rule; the OR conditions and two-cycle freshness limits follow the official requirements. Implementation is pending.
   - Helm chart for app
   - Kustomize manifests for infra resources
   - `/readyz` used as readiness probe

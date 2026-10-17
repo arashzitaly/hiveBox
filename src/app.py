@@ -1,12 +1,17 @@
 """HiveBox Flask application."""
 
 from datetime import datetime, timezone
+import io
 import json
 import os
+import threading
 import requests
 import valkey
 from flask import Flask, jsonify
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from minio import Minio
+from minio.error import MinioException
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
+from urllib3.exceptions import HTTPError
 from werkzeug.wrappers import Response
 
 SENSEBOX_IDS = os.environ.get(
@@ -26,6 +31,40 @@ cache = valkey.Valkey(
 )
 CACHE_KEY = "hivebox:temperature"
 CACHE_TTL_SECONDS = 300
+
+storage = Minio(
+    os.environ.get("MINIO_ENDPOINT", "127.0.0.1:9000"),
+    access_key=os.environ.get("MINIO_ACCESS_KEY"),
+    secret_key=os.environ.get("MINIO_SECRET_KEY"),
+    secure=False,
+)
+STORAGE_BUCKET = "hivebox"
+STORAGE_INTERVAL_SECONDS = 300
+READINESS_MAX_AGE_SECONDS = 600
+SENSEBOX_ACCESS = {}
+SENSEBOX_ACCESS_LOCK = threading.Lock()
+SNAPSHOT_SAVES = Counter(
+    "hivebox_snapshot_saves_total",
+    "Temperature snapshot save attempts",
+    ["result"],
+)
+for save_outcome in ("success", "error", "no_data"):
+    SNAPSHOT_SAVES.labels(result=save_outcome)
+
+
+def save_temperature_snapshot(data):
+    """Upload a JSON snapshot to MinIO with a timestamped object name."""
+    payload = json.dumps(data).encode("utf-8")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+    object_name = f"temperatures/{timestamp}.json"
+
+    return storage.put_object(
+        STORAGE_BUCKET,
+        object_name,
+        io.BytesIO(payload),
+        length=len(payload),
+        content_type="application/json",
+    )
 
 
 def save_cached_temperature(data):
@@ -74,10 +113,72 @@ def extract_recent_temperature(box):
 
 def fetch_box_data(box_id):
     """Fetch a senseBox payload, including original measurement timestamps."""
-    response = requests.get(
-        f"https://api.opensensemap.org/boxes/{box_id}", timeout=5)
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            f"https://api.opensensemap.org/boxes/{box_id}", timeout=5)
+        response.raise_for_status()
+    except requests.RequestException:
+        record_sensebox_access(box_id, False)
+        raise
+    record_sensebox_access(box_id, True)
     return response.json()
+
+
+def record_sensebox_access(box_id, accessible):
+    """Record HTTP accessibility independently of measurement validity."""
+    with SENSEBOX_ACCESS_LOCK:
+        SENSEBOX_ACCESS[box_id] = (accessible, datetime.now(timezone.utc))
+
+
+def timestamp_is_ready(timestamp):
+    """Accept aware timestamps from now through two cycles ago."""
+    age = (datetime.now(timezone.utc) - timestamp).total_seconds()
+    return 0 <= age <= READINESS_MAX_AGE_SECONDS
+
+
+def senseboxes_are_ready():
+    """Treat missing or outdated accessibility observations as unavailable."""
+    with SENSEBOX_ACCESS_LOCK:
+        observations = dict(SENSEBOX_ACCESS)
+    failures = 0
+    for box_id in SENSEBOX_IDS:
+        accessible, checked_at = observations.get(box_id, (False, None))
+        if not accessible or checked_at is None or not timestamp_is_ready(checked_at):
+            failures += 1
+    return bool(SENSEBOX_IDS) and failures < max(1, len(SENSEBOX_IDS) - 1)
+
+
+def cache_is_ready():
+    """Inspect existing cache content without refreshing it."""
+    try:
+        data = read_cached_temperature()
+        return (
+            isinstance(data, dict)
+            and data["sensebox_ids"] == SENSEBOX_IDS
+            and isinstance(data["boxes"], list)
+            and bool(data["boxes"])
+            and timestamp_is_ready(datetime.fromisoformat(data["refreshed_at"]))
+        )
+    except (valkey.exceptions.ValkeyError, KeyError, TypeError, ValueError):
+        return False
+
+
+def snapshot_is_ready():
+    """Find persisted snapshot objects, including those saved before a restart."""
+    try:
+        latest = None
+        for item in storage.list_objects(STORAGE_BUCKET, prefix="temperatures/", recursive=True):
+            name = item.object_name.removeprefix("temperatures/")
+            try:
+                datetime.strptime(name, "%Y-%m-%dT%H-%M-%S-%fZ.json")
+            except ValueError:
+                continue
+            if item.last_modified is not None:
+                if latest is None or item.last_modified > latest:
+                    latest = item.last_modified
+        return latest is not None and timestamp_is_ready(latest)
+    except (MinioException, HTTPError, OSError, TypeError, ValueError):
+        return False
 
 
 def temperatures_from_boxes(boxes):
@@ -102,6 +203,7 @@ def refresh_temperature_cache():
         try:
             boxes.append(fetch_box_data(box_id))
         except (KeyError, TypeError, ValueError, requests.RequestException):
+            app.logger.exception("Failed to fetch senseBox %s", box_id)
             continue
 
     temperatures = temperatures_from_boxes(boxes)
@@ -112,6 +214,20 @@ def refresh_temperature_cache():
             "refreshed_at": datetime.now(timezone.utc).isoformat(),
         })
     return temperatures
+
+
+def run_cache_refresh_loop(stop_event=None):
+    """Refresh immediately, then wait five minutes between attempts."""
+    if stop_event is None:
+        stop_event = threading.Event()
+    while not stop_event.is_set():
+        try:
+            if not refresh_temperature_cache():
+                app.logger.warning(
+                    "Scheduled cache refresh found no valid readings")
+        except valkey.exceptions.ValkeyError:
+            app.logger.exception("Scheduled cache refresh failed")
+        stop_event.wait(CACHE_TTL_SECONDS)
 
 
 def cached_temperature_values():
@@ -127,6 +243,46 @@ def cached_temperature_values():
         return temperatures_from_boxes(data["boxes"])
     except (KeyError, TypeError, ValueError, AttributeError):
         return []
+
+
+def store_temperature_snapshot():
+    """Upload an average of valid readings, or return None when none exist."""
+    try:
+        temperatures = cached_temperature_values()
+        if not temperatures:
+            temperatures = refresh_temperature_cache()
+        if not temperatures:
+            SNAPSHOT_SAVES.labels(result="no_data").inc()
+            return None
+        average = round(sum(temperatures) / len(temperatures), 2)
+        snapshot = {
+            "temperature": average,
+            "status": calculate_temperature_status(average),
+            "sensebox_ids": SENSEBOX_IDS,
+            "stored_at": datetime.now(timezone.utc).isoformat(),
+        }
+        result = save_temperature_snapshot(snapshot)
+    except (valkey.exceptions.ValkeyError, MinioException, HTTPError, OSError):
+        SNAPSHOT_SAVES.labels(result="error").inc()
+        raise
+    SNAPSHOT_SAVES.labels(result="success").inc()
+    return result
+
+
+def run_snapshot_store_loop(stop_event=None):
+    """Save immediately and wait five minutes after each successful or failed attempt."""
+    if stop_event is None:
+        stop_event = threading.Event()
+    while not stop_event.is_set():
+        try:
+            result = store_temperature_snapshot()
+            if result is None:
+                app.logger.warning("Scheduled snapshot save found no valid readings")
+            else:
+                app.logger.info("Scheduled snapshot saved: %s", result.object_name)
+        except (valkey.exceptions.ValkeyError, MinioException, HTTPError, OSError):
+            app.logger.exception("Scheduled snapshot save failed")
+        stop_event.wait(STORAGE_INTERVAL_SECONDS)
 
 
 def temperature_response(force_refresh=False):
@@ -166,6 +322,36 @@ def refresh_cache():
     return temperature_response(force_refresh=True)
 
 
+@app.get("/store")
+def store():
+    """Save a temperature snapshot immediately, reporting dependency failures."""
+    try:
+        result = store_temperature_snapshot()
+    except valkey.exceptions.ValkeyError:
+        app.logger.exception("Snapshot save failed: cache unavailable")
+        return jsonify({"error": "Temperature cache unavailable"}), 503
+    except (MinioException, HTTPError, OSError):
+        app.logger.exception("Snapshot save failed: storage unavailable")
+        return jsonify({"error": "Temperature storage unavailable"}), 503
+
+    if result is None:
+        return jsonify({"error": "No valid temperature data within the last hour"}), 503
+    return jsonify({"bucket": STORAGE_BUCKET, "object_name": result.object_name})
+
+
+@app.get("/readyz")
+def readyz():
+    """Inspect readiness without fetching sensor data or writing snapshots."""
+    checks = {
+        "senseboxes": senseboxes_are_ready(),
+        "cache": cache_is_ready(),
+        "storage": snapshot_is_ready(),
+    }
+    ready = all(checks.values())
+    return jsonify({"status": "ready" if ready else "not_ready", "checks": checks}), (
+        200 if ready else 503)
+
+
 @app.get("/metrics")
 def metrics():
     """Return Prometheus metrics."""
@@ -173,4 +359,10 @@ def metrics():
 
 
 if __name__ == "__main__":
+    threading.Thread(
+        target=run_cache_refresh_loop, name="cache-refresh", daemon=True
+    ).start()
+    threading.Thread(
+        target=run_snapshot_store_loop, name="snapshot-store", daemon=True
+    ).start()
     app.run(host=os.environ.get("HOST", "127.0.0.1"), port=8080)

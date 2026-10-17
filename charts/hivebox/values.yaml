@@ -1,0 +1,51 @@
+replicaCount: 1
+
+# Local Phase 5 image. Build and load into KIND before installing.
+image:
+  repository: hivebox
+  tag: phase5-local
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+
+senseboxIds:
+  - 5eba5fbad46fb8001b799786
+  - 5c21ff8f919bf8001adf2488
+  - 5ade1acf223bd80019a1011c
+
+valkey:
+  host: hivebox-valkey
+  port: 6379
+
+minio:
+  endpoint: hivebox-minio:9000
+  existingSecret: hivebox-minio-credentials
+  accessKeyField: access-key
+  secretKeyField: secret-key
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /version
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+    ephemeral-storage: 256Mi

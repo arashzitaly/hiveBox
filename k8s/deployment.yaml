@@ -13,9 +13,6 @@ spec:
     metadata:
       labels:
         app: hivebox
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/hivebox: runtime/default
-        seccomp.security.alpha.kubernetes.io/pod: runtime/default
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -34,11 +31,28 @@ spec:
             periodSeconds: 30
           readinessProbe:
             httpGet:
-              path: /version
+              path: /readyz
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
           env:
+            - name: VALKEY_HOST
+              value: hivebox-valkey
+            - name: VALKEY_PORT
+              value: "6379"
+            - name: MINIO_ENDPOINT
+              value: hivebox-minio:9000
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hivebox-minio-credentials
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hivebox-minio-credentials
+                  key: secret-key
             - name: SENSEBOX_IDS
               value: "5eba5fbad46fb8001b799786,5c21ff8f919bf8001adf2488,5ade1acf223bd80019a1011c"
           securityContext:
