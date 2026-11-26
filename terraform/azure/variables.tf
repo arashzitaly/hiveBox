@@ -17,9 +17,9 @@ variable "cluster_name" {
 }
 
 variable "node_size" {
-  description = "Azure VM size for the worker nodes. Standard_B2s_v2 = burstable v2 (2 vCPU / 8 GiB), cheap, fine for learning. NOTE: swedencentral only offers the v2 B-series — the older Standard_B2s (v1) does NOT exist there. Pick from the region's offered sizes if you change region. (DO used a droplet slug like s-1vcpu-2gb.)"
+  description = "Azure VM size for the AKS worker nodes."
   type        = string
-  default     = "Standard_B2s_v2"
+  default     = "Standard_D4s_v3"
 }
 
 variable "node_count" {

@@ -1,0 +1,5 @@
+senseboxApiUrl: http://sensebox-fixture
+senseboxIds:
+  - fixture-1
+  - fixture-2
+  - fixture-3

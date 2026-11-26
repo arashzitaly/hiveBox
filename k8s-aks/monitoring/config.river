@@ -1,0 +1,44 @@
+prometheus.scrape "hivebox" {
+  targets = [{
+    "__address__" = "hivebox.default.svc:80",
+    "job" = "hivebox-agent",
+  }]
+  scrape_interval = "15s"
+  forward_to = [prometheus.remote_write.lab.receiver]
+}
+
+prometheus.remote_write "lab" {
+  endpoint {
+    url = "http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090/api/v1/write"
+  }
+}
+
+discovery.kubernetes "hivebox" {
+  role = "pod"
+  namespaces {
+    names = ["default"]
+  }
+  selectors {
+    role = "pod"
+    label = "app=hivebox"
+  }
+}
+
+discovery.relabel "hivebox_logs" {
+  targets = discovery.kubernetes.hivebox.targets
+  rule {
+    target_label = "app"
+    replacement = "hivebox"
+  }
+}
+
+loki.source.kubernetes "hivebox" {
+  targets = discovery.relabel.hivebox_logs.output
+  forward_to = [loki.write.lab.receiver]
+}
+
+loki.write "lab" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc/loki/api/v1/push"
+  }
+}

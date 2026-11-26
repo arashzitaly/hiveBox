@@ -1,5 +1,7 @@
 replicaCount: 1
 
+imagePullSecrets: []
+
 # Local Phase 5 image. Build and load into KIND before installing.
 image:
   repository: hivebox
@@ -13,6 +15,8 @@ senseboxIds:
   - 5eba5fbad46fb8001b799786
   - 5c21ff8f919bf8001adf2488
   - 5ade1acf223bd80019a1011c
+
+senseboxApiUrl: ""
 
 valkey:
   host: hivebox-valkey

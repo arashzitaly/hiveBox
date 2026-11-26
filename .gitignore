@@ -3,11 +3,13 @@ __pycache__/
 *.pyc
 .coverage
 coverage.xml
+/venom*.log
 
 # Terraform (Step 7 / Project 1 — IaC on DigitalOcean and Azure)
 **/.terraform/
 *.tfstate
 *.tfstate.*
+*.tfplan
 crash.log
 crash.*.log
 *.tfvars

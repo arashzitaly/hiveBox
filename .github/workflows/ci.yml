@@ -52,3 +52,83 @@ jobs:
             -w /workspace \
             tenable/terrascan:1.18.11 \
             scan -d k8s -i k8s --iac-version v1 -t k8s --skip-rules AC_K8S_0069
+
+  e2e:
+    name: Venom on KIND
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CLUSTER_NAME: hivebox-e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install KIND, kubectl, and Venom
+        run: |
+          curl -fsSL --retry 3 https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64 -o "$RUNNER_TEMP/kind"
+          kubectl_url=https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl
+          curl -fsSL --retry 3 "$kubectl_url" -o "$RUNNER_TEMP/kubectl"
+          curl -fsSL --retry 3 "$kubectl_url.sha256" -o "$RUNNER_TEMP/kubectl.sha256"
+          echo "$(cat "$RUNNER_TEMP/kubectl.sha256")  $RUNNER_TEMP/kubectl" | sha256sum --check
+          curl -fsSL --retry 3 https://github.com/ovh/venom/releases/download/v1.3.0/venom.linux-amd64 -o "$RUNNER_TEMP/venom"
+          echo "89832ec25e820c605cf0d3c09122e60bad43d13c1724aa6d375ef7109fbfe201  $RUNNER_TEMP/venom" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/kind" "$RUNNER_TEMP/kubectl" "$RUNNER_TEMP/venom"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Build and load lab images
+        run: |
+          docker build -t hivebox:phase5-local .
+          docker build -f tests/e2e/Dockerfile.minio -t hivebox-minio:local tests/e2e
+          kind create cluster --name "$CLUSTER_NAME" --wait 180s
+          kind load docker-image --name "$CLUSTER_NAME" hivebox:phase5-local hivebox-minio:local
+
+      - name: Deploy HiveBox and its dependencies
+        run: |
+          context="kind-$CLUSTER_NAME"
+          k() { kubectl --context "$context" -n default "$@"; }
+          minio_password=$(openssl rand -hex 24)
+          k create secret generic hivebox-minio-credentials \
+            --from-literal=access-key=hiveboxci --from-literal="secret-key=$minio_password"
+          k apply -k k8s/infra
+          k apply -f tests/e2e/sensebox.yaml
+          k rollout status deployment/hivebox-valkey --timeout=180s
+          k rollout status deployment/hivebox-minio --timeout=180s
+          k rollout status deployment/sensebox-fixture --timeout=180s
+          k apply -k k8s
+          k wait --for=condition=complete job/hivebox-minio-bucket --timeout=300s
+          helm upgrade --install hivebox charts/hivebox --kube-context "$context" --namespace default \
+            --values tests/e2e/values-kind.yaml --wait --timeout 7m
+
+      - name: Run Venom
+        run: |
+          mkdir -p e2e-results
+          kubectl --context "kind-$CLUSTER_NAME" -n default port-forward svc/hivebox 18080:80 >e2e-results/port-forward.log 2>&1 &
+          forward_pid=$!
+          trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
+          curl -fsS --retry 15 --retry-connrefused --retry-delay 1 --max-time 5 http://127.0.0.1:18080/readyz
+          venom run tests/e2e/hivebox.e2e.yml --format=xml --output-dir=e2e-results
+
+      - name: Inspect failed deployment
+        if: failure()
+        run: |
+          context="kind-$CLUSTER_NAME"
+          kubectl --context "$context" -n default get pods,services,jobs,pvc || true
+          kubectl --context "$context" -n default get events --sort-by=.lastTimestamp || true
+          kubectl --context "$context" -n default logs deployment/hivebox --tail=80 || true
+
+      - name: Upload Venom results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hivebox-e2e-results
+          path: e2e-results/
+          if-no-files-found: ignore
+
+      - name: Delete KIND cluster
+        if: always()
+        run: |
+          if command -v kind >/dev/null; then
+            kind delete cluster --name "$CLUSTER_NAME"
+          fi

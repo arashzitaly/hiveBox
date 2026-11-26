@@ -18,6 +18,9 @@ SENSEBOX_IDS = os.environ.get(
     "SENSEBOX_IDS",
     "5eba5fbad46fb8001b799786,5c21ff8f919bf8001adf2488,5ade1acf223bd80019a1011c",
 ).split(",")
+SENSEBOX_API_URL = os.environ.get(
+    "SENSEBOX_API_URL", "https://api.opensensemap.org"
+).rstrip("/")
 
 __version__ = "0.0.1"
 
@@ -115,7 +118,7 @@ def fetch_box_data(box_id):
     """Fetch a senseBox payload, including original measurement timestamps."""
     try:
         response = requests.get(
-            f"https://api.opensensemap.org/boxes/{box_id}", timeout=5)
+            f"{SENSEBOX_API_URL}/boxes/{box_id}", timeout=5)
         response.raise_for_status()
     except requests.RequestException:
         record_sensebox_access(box_id, False)

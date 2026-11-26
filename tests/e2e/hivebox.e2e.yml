@@ -1,0 +1,55 @@
+name: HiveBox smoke test
+vars:
+  base_url: http://127.0.0.1:18080
+testcases:
+  - name: Version returns the deployed version
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/version"
+        timeout: 5
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.version ShouldEqual 0.0.1
+  - name: HiveBox is ready
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/readyz"
+        timeout: 5
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.status ShouldEqual ready
+          - result.bodyjson.checks.cache ShouldEqual true
+          - result.bodyjson.checks.senseboxes ShouldEqual true
+          - result.bodyjson.checks.storage ShouldEqual true
+  - name: Temperature returns a reading
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/temperature"
+        timeout: 10
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.temperature ShouldNotBeNil
+          - result.bodyjson.status ShouldNotBeBlank
+  - name: Store writes a snapshot
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/store"
+        timeout: 10
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.bucket ShouldEqual hivebox
+          - result.bodyjson.object_name ShouldStartWith temperatures/
+          - result.bodyjson.object_name ShouldEndWith .json
+  - name: Metrics expose the snapshot counter
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/metrics"
+        timeout: 5
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.body ShouldContainSubstring hivebox_snapshot_saves_total

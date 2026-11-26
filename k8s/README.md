@@ -99,3 +99,17 @@ If Helm is installed on PATH, use `helm` instead of the temporary binary path.
 On a fresh cluster the Helm command creates the application directly. For a
 cluster still running the earlier plain Deployment, follow the ownership
 handover in `charts/hivebox/README.md` first.
+
+## Phase 5 pull request checks
+
+The `Venom on KIND` job builds the HiveBox and MinIO images, loads them into a
+fresh KIND cluster, starts Valkey and MinIO, creates the bucket, and installs
+HiveBox with Helm. The test senseBox Service returns fresh timestamps and
+known temperatures so the job can test readiness independently of openSenseMap.
+Venom calls the application through its Kubernetes Service and checks
+`/version`, `/readyz`, `/temperature`, `/store`, and `/metrics`.
+
+Open the job in GitHub Actions to read the deployment output and download the
+`hivebox-e2e-results` artifact. The job deletes the test cluster when it exits.
+To run the same suite against a running lab, forward the HiveBox Service to
+local port 18080 and run `venom run tests/e2e/hivebox.e2e.yml`.

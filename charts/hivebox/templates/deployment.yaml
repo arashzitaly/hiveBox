@@ -18,6 +18,10 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -51,6 +55,10 @@ spec:
                   key: {{ .Values.minio.secretKeyField | quote }}
             - name: SENSEBOX_IDS
               value: {{ join "," .Values.senseboxIds | quote }}
+            {{- with .Values.senseboxApiUrl }}
+            - name: SENSEBOX_API_URL
+              value: {{ . | quote }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
