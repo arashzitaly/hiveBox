@@ -15,6 +15,37 @@ diff the files to see how each concept maps.
 | `node_pool { size = <slug> }` | `default_node_pool { vm_size = "Standard_B2s" }` |
 | Spaces / S3 backend | `azurerm` blob backend |
 
+## Windows PowerShell: Azure CLI prerequisite
+
+Verify the CLI before running Terraform:
+
+```powershell
+az version
+```
+
+If PowerShell reports `az is not recognized`, check the installed launcher:
+
+```powershell
+Test-Path 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd'
+```
+
+If this returns `True`, add that directory to the current session's PATH:
+
+```powershell
+$env:Path = 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin;' + $env:Path
+az version
+az login
+az account show --query "{Subscription:name,Id:id}" -o table
+```
+
+This session change takes effect immediately. After installing Azure CLI,
+restart the terminal's parent application (for example VS Code or Codex) so
+new terminals inherit the updated system PATH. Changing repository directories
+does not refresh PATH. If the launcher is missing, install Azure CLI with
+`winget install --exact --id Microsoft.AzureCLI`, then restart the terminal host.
+
+Reference: [Install Azure CLI on Windows](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-windows).
+
 ## One-time bootstrap (state backend)
 
 The `azurerm` backend needs a storage account + container that already exist.

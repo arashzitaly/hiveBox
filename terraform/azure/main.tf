@@ -34,6 +34,11 @@ resource "azurerm_kubernetes_cluster" "hivebox" {
     name       = "default"
     node_count = var.node_count
     vm_size    = var.node_size # Azure VM size (e.g. Standard_B2s), not a DO slug.
+    upgrade_settings {
+      max_surge                     = "10%"
+      drain_timeout_in_minutes      = 0
+      node_soak_duration_in_minutes = 0
+    }
   }
 
   # AKS needs a cluster identity to manage Azure resources (load balancers, disks).

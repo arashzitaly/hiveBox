@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hivebox-minio-bucket
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: create-bucket
+          image: ghcr.io/arashzitaly/hivebox:v0.0.6
+          command: [python, -c]
+          args:
+            - |
+              import os
+              from minio import Minio
+              client = Minio("hivebox-minio:9000",
+                             access_key=os.environ["MINIO_ACCESS_KEY"],
+                             secret_key=os.environ["MINIO_SECRET_KEY"],
+                             secure=False)
+              if not client.bucket_exists("hivebox"):
+                  client.make_bucket("hivebox")
+              print("hivebox bucket is ready")
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hivebox-minio-credentials
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hivebox-minio-credentials
+                  key: secret-key
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
